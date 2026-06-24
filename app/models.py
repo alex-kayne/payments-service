@@ -12,7 +12,7 @@ class Currency(StrEnum):
     EUR = "EUR"
 
 
-class PaymentStatus(str, Enum):
+class PaymentStatus(StrEnum):
     PENDING = "pending"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
