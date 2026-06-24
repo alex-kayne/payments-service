@@ -1,4 +1,5 @@
 from datetime import datetime, UTC
+from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, Numeric, Text
@@ -22,16 +23,19 @@ class Base(DeclarativeBase):
     ...
 
 
-class Payments(Base):
-    __tablename__ = "payments"
+class Payment(Base):
+    __tablename__ = "payment"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    amount: Mapped[float] = mapped_column(Numeric)
-    currency: Mapped[Currency]
+    amount: Mapped[Decimal] = mapped_column(Numeric)
+    currency: Mapped[Currency] = mapped_column(
+        Enum(Currency, name="currency", values_callable=lambda e: [m.value for m in e]))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    meta: Mapped[JSONB] = mapped_column("metadata", JSONB, default=dict)
-    status: Mapped[PaymentStatus]
-    idempotency_key: Mapped[str] = mapped_column(Text)
+    meta: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
+    status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus, name="payment_status", values_callable=lambda e: [m.value for m in e]),
+        default=PaymentStatus.PENDING)
+    idempotency_key: Mapped[str] = mapped_column(Text, unique=True)
     webhook_url: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
@@ -44,7 +48,7 @@ class Outbox(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     aggregate_id: Mapped[int] = mapped_column(index=True)
     event_type: Mapped[str] = mapped_column(Text)
-    payload: Mapped[JSONB] = mapped_column(JSONB)
+    payload: Mapped[dict] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
