@@ -31,8 +31,8 @@ class Payments(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     meta: Mapped[JSONB] = mapped_column("metadata", JSONB, default=dict)
     status: Mapped[PaymentStatus]
-    idempotency_key: str = mapped_column(Text)
-    webhook_url: str = mapped_column(Text)
+    idempotency_key: Mapped[str] = mapped_column(Text)
+    webhook_url: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
