@@ -29,7 +29,7 @@ class Payments(Base):
     amount: Mapped[float] = mapped_column(Numeric)
     currency: Mapped[Currency]
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    meta: Mapped[JSONB | JSONB] = mapped_column("metadata", JSONB, default=dict)
+    meta: Mapped[JSONB] = mapped_column("metadata", JSONB, default=dict)
     status: Mapped[PaymentStatus]
     idempotency_key: str = mapped_column(Text)
     webhook_url: str = mapped_column(Text)
