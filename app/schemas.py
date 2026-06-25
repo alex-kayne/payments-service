@@ -31,7 +31,7 @@ class PaymentRead(BaseModel):
     status: PaymentStatus
     webhook_url: str
     created_at: datetime
-    processed_at: datetime
+    processed_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 
