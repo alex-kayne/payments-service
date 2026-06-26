@@ -58,4 +58,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_outbox_published_at'), table_name='outbox')
     op.drop_index(op.f('ix_outbox_aggregate_id'), table_name='outbox')
     op.drop_table('outbox')
+    sa.Enum(name="currency").drop(op.get_bind(), checkfirst=False)
+    sa.Enum(name="payment_status").drop(op.get_bind(), checkfirst=False)
     # ### end Alembic commands ###
