@@ -62,7 +62,7 @@ curl -X POST http://localhost:8000/api/v1/payments \
 
 ```
 {
-  "payment_id": "b3f1c2d4-...",
+  "payment_id": 1,
   "status": "pending",
   "created_at": "2026-06-24T10:15:00Z"
 }
@@ -79,7 +79,7 @@ curl http://localhost:8000/api/v1/payments/<payment_id> \
 
 ```
 {
-  "payment_id": "b3f1c2d4-...",
+  "payment_id": 1
   "status": "succeeded",
   "amount": "100.50",
   "currency": "RUB",
@@ -97,7 +97,7 @@ curl http://localhost:8000/api/v1/payments/<payment_id> \
 
 ```
 API_KEY=super-secret-key
-POSTGRES_DSN=postgresql+asyncpg://postgres:postgres@postgres:5432/payments
+DATABASE_URL=poostgresql+asyncpg://postgres:postgres@postgres:5432/payments
 RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
 WEBHOOK_MAX_RETRIES=3
 OUTBOX_POLL_INTERVAL=1.0
