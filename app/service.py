@@ -1,7 +1,12 @@
+import asyncio
+import random
+from datetime import datetime, UTC
+
 from sqlalchemy.exc import IntegrityError
 
+from app.config import settings
 from app.database import async_session_maker
-from app.models import Payment, Outbox
+from app.models import Payment, Outbox, PaymentStatus
 from app.repository import PaymentRepository, OutboxRepository
 from app.schemas import PaymentCreate
 
@@ -40,3 +45,16 @@ class PaymentService:
         except IntegrityError:
             async with async_session_maker() as async_session:
                 return await self.payment_repo.get_by_idempotency_key(async_session, idempotency_key)
+
+    async def process_payment(self, payment_id: int) -> Payment | None:
+        async with async_session_maker.begin() as async_session:
+            if not (payment := await self.payment_repo.get_by_id(payment_id)):
+                return None
+            if payment.status is not PaymentStatus.PENDING:
+                return payment
+
+            await asyncio.sleep(random.uniform(settings.process_min_seconds, settings.process_max_seconds))
+            failed = random.random() < settings.failure_rate
+            payment.status = PaymentStatus.FAILED if failed else PaymentStatus.SUCCEEDED
+            payment.processed_at = datetime.now(UTC)
+            return payment
