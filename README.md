@@ -97,7 +97,7 @@ curl http://localhost:8000/api/v1/payments/<payment_id> \
 
 ```
 API_KEY=super-secret-key
-DATABASE_URL=poostgresql+asyncpg://postgres:postgres@postgres:5432/payments
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/payments
 RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
 WEBHOOK_MAX_RETRIES=3
 OUTBOX_POLL_INTERVAL=1.0
