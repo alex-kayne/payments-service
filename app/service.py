@@ -48,7 +48,7 @@ class PaymentService:
 
     async def process_payment(self, payment_id: int) -> Payment | None:
         async with async_session_maker.begin() as async_session:
-            if not (payment := await self.payment_repo.get_by_id(payment_id)):
+            if not (payment := await self.payment_repo.get_by_id(async_session, payment_id)):
                 return None
             if payment.status is not PaymentStatus.PENDING:
                 return payment
