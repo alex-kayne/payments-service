@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     process_min_seconds: float = 2.0
     process_max_seconds: float = 5.0
     failure_rate: float = 0.1
+    webhook_max_retries: int = 3
+    webhook_timeout: float = 5.0
 
     model_config = SettingsConfigDict(extra="ignore", env_file=".env")
 

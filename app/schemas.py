@@ -44,3 +44,6 @@ class WebhookPayload(BaseModel):
     processed_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
+
+class PaymentMessage(BaseModel):
+    payment_id: int
