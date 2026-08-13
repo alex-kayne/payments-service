@@ -38,7 +38,11 @@ class Payment(Base):
     idempotency_key: Mapped[str] = mapped_column(Text, unique=True)
     webhook_url: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -50,5 +54,9 @@ class Outbox(Base):
     event_type: Mapped[str] = mapped_column(Text)
     payload: Mapped[dict] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True, index=True)

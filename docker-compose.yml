@@ -33,6 +33,12 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   consumer:
     build: .
@@ -43,6 +49,12 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'faststream run' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   pgdata:

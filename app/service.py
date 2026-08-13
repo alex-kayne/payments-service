@@ -13,17 +13,24 @@ from app.schemas import PaymentCreate
 
 class PaymentService:
 
-    def __init__(self, payment_repo: PaymentRepository, outbox_repo: OutboxRepository):
+    def __init__(self, payment_repo: PaymentRepository, outbox_repo: OutboxRepository, session_maker=None):
+        # По умолчанию — глобальный session_maker: безопасно для FastAPI/
+        # FastStream-процессов с одним живущим вечно event loop. Тесты
+        # (TestClient, pytest-asyncio — у каждого свой event loop на вызов/
+        # тест) передают свой session_maker на свежем engine, иначе пул
+        # соединений глобального engine переживёт закрытие чужого лупа и
+        # столкнётся со следующим ("Future attached to a different loop").
         self.payment_repo = payment_repo
         self.outbox_repo = outbox_repo
+        self.session_maker = session_maker or async_session_maker
 
     async def get_payment(self, payment_id: int) -> Payment | None:
-        async with async_session_maker() as async_session:
+        async with self.session_maker() as async_session:
             return await self.payment_repo.get_by_id(async_session, payment_id)
 
     async def create_payment(self, data: PaymentCreate, idempotency_key: str) -> Payment | None:
         try:
-            async with async_session_maker.begin() as async_session:
+            async with self.session_maker.begin() as async_session:
                 if existing := await self.payment_repo.get_by_idempotency_key(async_session, idempotency_key):
                     return existing
                 payment = Payment(
@@ -43,11 +50,11 @@ class PaymentService:
 
                 return payment
         except IntegrityError:
-            async with async_session_maker() as async_session:
+            async with self.session_maker() as async_session:
                 return await self.payment_repo.get_by_idempotency_key(async_session, idempotency_key)
 
     async def process_payment(self, payment_id: int) -> Payment | None:
-        async with async_session_maker.begin() as async_session:
+        async with self.session_maker.begin() as async_session:
             if not (payment := await self.payment_repo.get_by_id(async_session, payment_id)):
                 return None
             if payment.status is not PaymentStatus.PENDING:

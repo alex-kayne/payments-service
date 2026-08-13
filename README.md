@@ -1,28 +1,13 @@
 # payments-service
 
-Сервис асинхронной обработки платежей. Принимает запрос на оплату, прогоняет его
-через эмуляцию платёжного шлюза и отправляет результат на webhook.
+Асинхронный сервис обработки платежей. Принимает запрос на оплату, публикует
+событие через Outbox pattern, обрабатывает платёж в фоновом consumer'е через
+RabbitMQ и уведомляет клиента о результате через webhook.
 
 ## Стек
 
 FastAPI, Pydantic v2, SQLAlchemy 2.0 (async), PostgreSQL, RabbitMQ (FastStream),
 Alembic, Docker.
-
-## Как работает
-
-API при создании платежа кладёт его в БД и в той же транзакции пишет событие в
-таблицу `outbox`. Отдельная корутина (relay) вычитывает `outbox` и публикует
-события в очередь `payments.new`. За счёт этого событие не теряется, даже если в
-момент создания RabbitMQ недоступен — это outbox pattern.
-
-Consumer читает `payments.new`, эмулирует обработку (2–5 сек, 90% успех / 10%
-отказ), обновляет статус платежа и шлёт webhook. Доставку webhook ретраит 3 раза
-с экспоненциальной задержкой. Если так и не доставили — сообщение уходит в DLQ
-(`payments.dlq`).
-
-Идемпотентность сделана в двух местах: на создании платежа по заголовку
-`Idempotency-Key` (уникальный индекс, повторный запрос возвращает уже созданный
-платёж), и в consumer'е — платёж в финальном статусе повторно не обрабатывается.
 
 ## Запуск
 
@@ -31,18 +16,39 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Поднимаются postgres, rabbitmq, api, consumer. Миграции накатываются автоматически
-при старте api.
+Поднимаются `postgres`, `rabbitmq`, `api`, `consumer`. Миграции накатываются
+автоматически при старте `api`.
 
 - API — http://localhost:8000
 - Swagger — http://localhost:8000/docs
-- RabbitMQ — http://localhost:15672 (guest / guest)
+- RabbitMQ management UI — http://localhost:15672 (guest / guest)
+- Health check — http://localhost:8000/health
+
+## Тесты
+
+```
+poetry install
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/payments \
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/ \
+poetry run pytest
+```
+
+Требуется поднятый Postgres (`docker compose up postgres -d` или локальный).
+RabbitMQ для тестов не нужен — брокер эмулируется через `TestRabbitBroker`
+(часть FastStream), реальной сети нет.
+
+Покрытие: repository (включая `SELECT ... FOR UPDATE SKIP LOCKED` на
+конкурентных транзакциях), service (идемпотентность создания, переходы
+статуса), API (аутентификация, коды ответов, идемпотентный повтор), worker
+(relay, retry вебхука, маршрутизация сообщения к подписчику через реальный
+протокол RabbitMQ в памяти).
 
 ## API
 
-Во всех запросах нужен заголовок `X-API-Key`.
+Все запросы требуют заголовок `X-API-Key`.
 
-Создать платёж:
+**Создать платёж** — `POST /api/v1/payments`, заголовок `Idempotency-Key`
+обязателен:
 
 ```
 curl -X POST http://localhost:8000/api/v1/payments \
@@ -58,9 +64,9 @@ curl -X POST http://localhost:8000/api/v1/payments \
   }'
 ```
 
-Ответ 202:
+Ответ `202 Accepted`:
 
-```
+```json
 {
   "payment_id": 1,
   "status": "pending",
@@ -68,18 +74,14 @@ curl -X POST http://localhost:8000/api/v1/payments \
 }
 ```
 
-Получить платёж:
+**Получить платёж** — `GET /api/v1/payments/{payment_id}` → `200` с полной
+информацией о платеже, `404` если не найден.
 
-```
-curl http://localhost:8000/api/v1/payments/<payment_id> \
-  -H "X-API-Key: super-secret-key"
-```
+**Webhook** — на `webhook_url` приходит `POST` с результатом обработки:
 
-На `webhook_url` приходит POST с результатом:
-
-```
+```json
 {
-  "payment_id": 1
+  "payment_id": 1,
   "status": "succeeded",
   "amount": "100.50",
   "currency": "RUB",
@@ -87,27 +89,77 @@ curl http://localhost:8000/api/v1/payments/<payment_id> \
 }
 ```
 
-## Очереди
-
-- `payments.new` — основная очередь, объявлена с dead-letter exchange.
-- `payments.dlx` / `payments.dlq` — обменник и очередь для сообщений, которые не
-  удалось обработать после ретраев.
-
-## Конфиг (.env)
+## Структура проекта
 
 ```
-API_KEY=super-secret-key
+app/
+├── main.py              # точка входа FastAPI, /health
+├── config.py             # настройки из окружения (pydantic-settings)
+├── database.py            # async engine + session maker
+├── models.py               # ORM: Payment, Outbox, enums статусов
+├── schemas.py               # Pydantic-схемы запросов/ответов
+├── security.py               # проверка X-API-Key
+├── repository.py               # доступ к данным (PaymentRepository, OutboxRepository)
+├── service.py                   # бизнес-логика (PaymentService)
+├── api/
+│   ├── payments.py               # HTTP-роуты
+│   └── deps.py                    # DI: сборка PaymentService
+└── worker/
+    ├── broker.py                   # RabbitMQ: очереди, DLX/DLQ
+    ├── relay.py                     # публикация outbox-событий в очередь
+    ├── processor.py                  # обработка платежа + webhook с ретраями
+    └── app.py                         # точка входа FastStream (consumer)
+alembic/                                # миграции БД
+tests/
+├── conftest.py                          # фикстура session_maker (реальный Postgres)
+├── test_repository.py
+├── test_service.py
+├── test_api.py
+└── test_worker.py
+```
+
+Два входа в приложение (`api/` — HTTP, `worker/` — фоновая обработка) стоят
+на общем слое `repository`/`service`: платёж создаётся через API, обрабатывается
+через consumer, логика между ними не дублируется.
+
+## Как это работает
+
+**Outbox.** При создании платежа `Payment` и запись в `outbox` пишутся в
+одной транзакции. Отдельная корутина (`relay`, работает внутри процесса
+`consumer`) вычитывает неопубликованные события через
+`SELECT ... FOR UPDATE SKIP LOCKED` и публикует их в очередь `payments.new`.
+Событие не теряется, даже если в момент создания платежа RabbitMQ был
+недоступен.
+
+**Обработка.** `consumer` читает `payments.new`, эмулирует обработку
+(2–5 сек, 90% успех / 10% отказ), обновляет статус и отправляет webhook.
+Доставку ретраит 3 раза с экспоненциальной задержкой (`tenacity`). Если
+доставить не удалось — сообщение уходит в `payments.dlq` через
+dead-letter exchange `payments.dlx`.
+
+**Идемпотентность.**
+- На создании — уникальный `Idempotency-Key`; повторный запрос с тем же
+  ключом возвращает уже созданный платёж, а не создаёт новый.
+- В consumer'е — платёж в терминальном статусе (`succeeded`/`failed`)
+  повторно не обрабатывается: дубль сообщения из очереди (at-least-once
+  доставка) не запускает обработку заново и не меняет уже установленный
+  исход.
+
+## Конфигурация (.env)
+
+```
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/payments
 RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-WEBHOOK_MAX_RETRIES=3
-OUTBOX_POLL_INTERVAL=1.0
+API_KEY=super-secret-key
 ```
 
-## Заметки по реализации
+## Решения и ограничения
 
-- relay крутится внутри процесса consumer'а, чтобы не плодить контейнеры сверх
-  тех, что в задании. При необходимости легко вынести отдельным сервисом.
-- decimal в JSON передаётся строкой, чтобы не терять точность на float.
-- отказ шлюза (10%) — это нормальный бизнес-результат со статусом `failed`, по
-  нему тоже уходит webhook; в DLQ попадают только сообщения с неудавшейся
-  доставкой/обработкой.
+- `relay` работает внутри процесса `consumer`, а не отдельным сервисом —
+  ТЗ ограничивает состав compose четырьмя сервисами (postgres, rabbitmq,
+  api, consumer). Логика вынесена в отдельный модуль (`worker/relay.py`) и
+  при необходимости выносится в отдельный контейнер без изменения кода.
+- `Decimal` передаётся в JSON строкой, чтобы не терять точность.
+- Отказ платёжного шлюза (10% вероятность) — это нормальный бизнес-исход
+  со статусом `failed`, по нему тоже отправляется webhook; в DLQ попадают
+  только сообщения с неудавшейся доставкой или обработкой.
