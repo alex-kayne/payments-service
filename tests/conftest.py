@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.config import settings
+from app.core.config import settings
 
 
 async def _truncate_and_reset_pool(engine) -> None:

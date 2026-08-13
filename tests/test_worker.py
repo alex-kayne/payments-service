@@ -6,9 +6,9 @@ import httpx
 import pytest
 from faststream.rabbit import TestRabbitBroker
 
-from app.models import Outbox
-from app.repository import OutboxRepository
-from app.schemas import PaymentMessage
+from app.payments.models import Outbox
+from app.payments.repository import OutboxRepository
+from app.payments.schemas import PaymentMessage
 from app.worker import processor, relay
 from app.worker.broker import broker, payments_new
 

@@ -5,10 +5,10 @@ from decimal import Decimal
 
 import pytest
 
-from app.models import Currency, PaymentStatus
-from app.repository import PaymentRepository, OutboxRepository
-from app.schemas import PaymentCreate
-from app.service import PaymentService
+from app.payments.models import Currency, PaymentStatus
+from app.payments.repository import PaymentRepository, OutboxRepository
+from app.payments.schemas import PaymentCreate
+from app.payments.service import PaymentService
 
 
 def _create_data(**overrides) -> PaymentCreate:
@@ -36,7 +36,7 @@ async def test_create_payment_writes_payment_and_outbox_event(session_maker):
 
     async with session_maker() as session:
         from sqlalchemy import select
-        from app.models import Outbox
+        from app.payments.models import Outbox
         result = await session.execute(select(Outbox).where(Outbox.aggregate_id == payment.id))
         event = result.scalar_one()
         assert event.event_type == "payment.created"
@@ -53,7 +53,7 @@ async def test_create_payment_idempotent_on_repeat(session_maker):
 
     async with session_maker() as session:
         from sqlalchemy import func, select
-        from app.models import Payment
+        from app.payments.models import Payment
         total = await session.scalar(select(func.count()).select_from(Payment))
         assert total == 1
 
@@ -64,7 +64,7 @@ async def test_get_payment_returns_none_when_missing(session_maker):
 
 
 async def test_process_payment_transitions_to_terminal_status(session_maker, monkeypatch):
-    import app.service as service_module
+    import app.payments.service as service_module
 
     async def no_sleep(*_a, **_kw):
         pass
@@ -81,7 +81,7 @@ async def test_process_payment_transitions_to_terminal_status(session_maker, mon
 
 
 async def test_process_payment_skips_already_terminal_payment(session_maker, monkeypatch):
-    import app.service as service_module
+    import app.payments.service as service_module
 
     async def no_sleep(*_a, **_kw):
         pass

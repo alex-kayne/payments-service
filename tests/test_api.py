@@ -8,8 +8,8 @@ from fastapi.testclient import TestClient
 
 from app.api.deps import get_payment_service
 from app.main import app
-from app.repository import PaymentRepository, OutboxRepository
-from app.service import PaymentService
+from app.payments.repository import PaymentRepository, OutboxRepository
+from app.payments.service import PaymentService
 
 VALID_BODY = {
     "amount": "100.50",

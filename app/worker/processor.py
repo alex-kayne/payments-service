@@ -4,11 +4,11 @@ import httpx
 from faststream import AckPolicy
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from app.config import settings
-from app.models import Payment
-from app.repository import PaymentRepository, OutboxRepository
-from app.schemas import WebhookPayload, PaymentMessage
-from app.service import PaymentService
+from app.core.config import settings
+from app.payments.models import Payment
+from app.payments.repository import PaymentRepository, OutboxRepository
+from app.payments.schemas import WebhookPayload, PaymentMessage
+from app.payments.service import PaymentService
 from app.worker.broker import broker, payments_new
 
 payment_service = PaymentService(PaymentRepository(), OutboxRepository())

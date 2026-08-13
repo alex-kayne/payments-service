@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, status, Header, HTTPException
 
 from app.api.deps import get_payment_service
-from app.schemas import PaymentCreateResponse, PaymentCreate, PaymentRead
-from app.security import verify_api_key
-from app.service import PaymentService
+from app.payments.schemas import PaymentCreateResponse, PaymentCreate, PaymentRead
+from app.core.security import verify_api_key
+from app.payments.service import PaymentService
 
 router = APIRouter(
     prefix="/api/v1/payments",

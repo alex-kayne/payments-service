@@ -1,9 +1,9 @@
 import asyncio
 import logging
 
-from app.config import settings
-from app.database import async_session_maker
-from app.repository import OutboxRepository
+from app.core.config import settings
+from app.core.database import async_session_maker
+from app.payments.repository import OutboxRepository
 from app.worker.broker import broker, payments_new
 
 outbox_repo = OutboxRepository()

@@ -4,11 +4,11 @@ from datetime import datetime, UTC
 
 from sqlalchemy.exc import IntegrityError
 
-from app.config import settings
-from app.database import async_session_maker
-from app.models import Payment, Outbox, PaymentStatus
-from app.repository import PaymentRepository, OutboxRepository
-from app.schemas import PaymentCreate
+from app.core.config import settings
+from app.core.database import async_session_maker
+from app.payments.models import Payment, Outbox, PaymentStatus
+from app.payments.repository import PaymentRepository, OutboxRepository
+from app.payments.schemas import PaymentCreate
 
 
 class PaymentService:

@@ -93,34 +93,37 @@ curl -X POST http://localhost:8000/api/v1/payments \
 
 ```
 app/
-├── main.py              # точка входа FastAPI, /health
-├── config.py             # настройки из окружения (pydantic-settings)
-├── database.py            # async engine + session maker
-├── models.py               # ORM: Payment, Outbox, enums статусов
-├── schemas.py               # Pydantic-схемы запросов/ответов
-├── security.py               # проверка X-API-Key
-├── repository.py               # доступ к данным (PaymentRepository, OutboxRepository)
-├── service.py                   # бизнес-логика (PaymentService)
+├── main.py                # точка входа FastAPI, /health
+├── core/                   # инфраструктура, не завязанная на домен платежей
+│   ├── config.py            # настройки из окружения (pydantic-settings)
+│   ├── database.py           # async engine + session maker
+│   └── security.py            # проверка X-API-Key
+├── payments/                # домен: всё, что относится к платежам
+│   ├── models.py               # ORM: Payment, Outbox, enums статусов
+│   ├── schemas.py               # Pydantic-схемы запросов/ответов
+│   ├── repository.py             # доступ к данным (PaymentRepository, OutboxRepository)
+│   └── service.py                 # бизнес-логика (PaymentService)
 ├── api/
-│   ├── payments.py               # HTTP-роуты
-│   └── deps.py                    # DI: сборка PaymentService
+│   ├── payments.py                 # HTTP-роуты
+│   └── deps.py                      # DI: сборка PaymentService
 └── worker/
-    ├── broker.py                   # RabbitMQ: очереди, DLX/DLQ
-    ├── relay.py                     # публикация outbox-событий в очередь
-    ├── processor.py                  # обработка платежа + webhook с ретраями
-    └── app.py                         # точка входа FastStream (consumer)
-alembic/                                # миграции БД
+    ├── broker.py                     # RabbitMQ: очереди, DLX/DLQ
+    ├── relay.py                       # публикация outbox-событий в очередь
+    ├── processor.py                    # обработка платежа + webhook с ретраями
+    └── app.py                           # точка входа FastStream (consumer)
+alembic/                                  # миграции БД
 tests/
-├── conftest.py                          # фикстура session_maker (реальный Postgres)
+├── conftest.py                            # фикстура session_maker (реальный Postgres)
 ├── test_repository.py
 ├── test_service.py
 ├── test_api.py
 └── test_worker.py
 ```
 
-Два входа в приложение (`api/` — HTTP, `worker/` — фоновая обработка) стоят
-на общем слое `repository`/`service`: платёж создаётся через API, обрабатывается
-через consumer, логика между ними не дублируется.
+Домен платежей (`payments/`) отделён от инфраструктуры (`core/`) и от входных
+точек (`api/` — HTTP, `worker/` — фоновая обработка). Оба входа стоят на
+общем слое `repository`/`service` из `payments/` — логика между ними не
+дублируется.
 
 ## Как это работает
 

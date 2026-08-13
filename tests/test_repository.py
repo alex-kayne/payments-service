@@ -1,8 +1,8 @@
 """Тесты репозиториев на настоящем Postgres — в частности FOR UPDATE SKIP
 LOCKED в fetch_unpublished, критичный для корректной работы relay при
 нескольких воркерах (не дублировать публикацию одного и того же события)."""
-from app.models import Payment, Currency, PaymentStatus, Outbox
-from app.repository import PaymentRepository, OutboxRepository
+from app.payments.models import Payment, Currency, PaymentStatus, Outbox
+from app.payments.repository import PaymentRepository, OutboxRepository
 
 
 async def _make_payment(session_maker, idempotency_key: str) -> Payment:
